@@ -30,7 +30,7 @@ type Props = {
   onReply: (msg: Message) => void;
 };
 
-/** ✅ format timestamp without external libs */
+/** format timestamp without external libs */
 function formatTime(date: string | number | Date) {
   return new Date(date).toLocaleTimeString([], {
     hour: "2-digit",
