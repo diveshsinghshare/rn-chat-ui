@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { Component } from "react";
 import { View, TextInput, Button, StyleSheet, Text, TouchableOpacity } from "react-native";
 import type { Message } from "./Message";
 
@@ -8,40 +8,64 @@ type Props = {
   onCancelReply: () => void;
 };
 
-export default function MessageInput({ onSend, replyTo, onCancelReply }: Props) {
-  const [text, setText] = useState("");
+type State = {
+  text: string;
+};
 
-  return (
-    <View style={styles.container}>
-      {replyTo && (
-        <View style={styles.replyPreview}>
-          <Text style={styles.replyLabel}>Replying to: {replyTo.text}</Text>
-          <TouchableOpacity onPress={onCancelReply}>
-            <Text style={styles.cancelReply}>❌</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+export default class MessageInput extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      text: "",
+    };
+  }
 
-      <TextInput
-        style={styles.input}
-        value={text}
-        onChangeText={setText}
-        placeholder="Type a message"
-      />
-      <Button
-        title="Send"
-        onPress={() => {
-          onSend(text);
-          setText("");
-        }}
-      />
-    </View>
-  );
+  handleSend = () => {
+    const { text } = this.state;
+    const { onSend } = this.props;
+    if (text.trim()) {
+      onSend(text);
+      this.setState({ text: "" });
+    }
+  };
+
+  render() {
+    const { replyTo, onCancelReply } = this.props;
+    const { text } = this.state;
+
+    return (
+      <View style={styles.container}>
+        {replyTo && (
+          <View style={styles.replyPreview}>
+            <Text style={styles.replyLabel}>Replying to: {replyTo.text}</Text>
+            <TouchableOpacity onPress={onCancelReply}>
+              <Text style={styles.cancelReply}>❌</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <TextInput
+          style={styles.input}
+          value={text}
+          onChangeText={(t) => this.setState({ text: t })}
+          placeholder="Type a message"
+        />
+        <Button title="Send" onPress={this.handleSend} />
+      </View>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
   container: { flexDirection: "row", alignItems: "center", padding: 8 },
-  input: { flex: 1, borderWidth: 1, borderColor: "#ccc", borderRadius: 4, padding: 8, marginRight: 8 },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 4,
+    padding: 8,
+    marginRight: 8,
+  },
   replyPreview: {
     position: "absolute",
     top: -40,

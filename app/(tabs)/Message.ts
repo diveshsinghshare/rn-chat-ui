@@ -1,14 +1,14 @@
 export type Message = {
-  id: string;
-  text?: string;
-  image?: string;
-  sender: "me" | "john";  // or "other"
-  timestamp: string;
-  reactions?: string[];
-  
+  id: string;                 // unique identifier
+  text?: string;              // message content
+  image?: string;             // optional image URL
+  sender: "me" | "john";      // could be expanded later to string (userId)
+  timestamp: string;          // ISO string or formatted date
+  reactions?: string[];       // emojis or reaction codes
+
   replyTo?: {
     id: string;
     text?: string;
-    sender: "me" | "john"; // 👈 important
+    sender: "me" | "john";    //  reference to original sender
   };
 };

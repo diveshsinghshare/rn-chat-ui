@@ -1,3 +1,18 @@
+/**
+ * MessageBubble.tsx
+ *
+ * A single chat bubble component that supports:
+ *  - Text, images, and timestamps
+ *  - Inline reply previews
+ *  - Long-press action menu (Reply / React)
+ *  - Emoji reaction picker
+ *
+ * Props:
+ *  - message: Message object to render
+ *  - onReact: callback(id, emoji) → handles emoji reactions
+ *  - onReply: callback(message) → sets reply context
+ */
+
 import React, { useState } from "react";
 import {
   View,
@@ -12,26 +27,34 @@ import type { Message } from "./Message";
 type Props = {
   message: Message;
   onReact: (id: string, emoji: string) => void;
-  onReply: (msg: Message) => void; // 👈 for replying
+  onReply: (msg: Message) => void;
 };
 
-// ✅ format timestamp without date-fns
+/** ✅ format timestamp without external libs */
 function formatTime(date: string | number | Date) {
-  return new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return new Date(date).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
+/** --------------------
+ *  MessageBubble Component
+ *  --------------------
+ */
 export function MessageBubble({ message, onReact, onReply }: Props) {
-  const [showActions, setShowActions] = useState(false);
-  const [showPicker, setShowPicker] = useState(false);
+  const [showActions, setShowActions] = useState(false); // long-press menu
+  const [showPicker, setShowPicker] = useState(false);   // emoji picker modal
 
   const isMe = message.sender === "me";
   const emojis = ["👍", "❤️", "😂", "😮", "😢", "👏"];
 
   return (
     <>
+      {/* --- Chat bubble wrapper --- */}
       <TouchableOpacity
         activeOpacity={0.8}
-        onLongPress={() => setShowActions(true)} // 👈 open actions menu
+        onLongPress={() => setShowActions(true)} // open actions menu
         style={[styles.wrapper, isMe ? styles.wrapperMe : styles.wrapperOther]}
       >
         <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
@@ -48,14 +71,14 @@ export function MessageBubble({ message, onReact, onReply }: Props) {
             </View>
           )}
 
-          {/* Text */}
+          {/* Text message */}
           {!!message.text && (
             <Text style={[styles.text, isMe ? styles.textMe : styles.textOther]}>
               {message.text}
             </Text>
           )}
 
-          {/* Image */}
+          {/* Image message */}
           {!!message.image && (
             <Image source={{ uri: message.image }} style={styles.image} />
           )}
@@ -83,26 +106,28 @@ export function MessageBubble({ message, onReact, onReply }: Props) {
         </View>
       </TouchableOpacity>
 
-      {/* --- Action menu --- */}
+      {/* --- Long-press Action Menu --- */}
       <Modal visible={showActions} transparent animationType="fade">
         <TouchableOpacity
           style={styles.overlay}
           onPress={() => setShowActions(false)}
         >
           <View style={styles.menu}>
+            {/* Reply option */}
             <TouchableOpacity
               onPress={() => {
                 setShowActions(false);
-                onReply(message); // 👈 pass whole msg
+                onReply(message);
               }}
             >
               <Text style={styles.menuItem}>↩️ Reply</Text>
             </TouchableOpacity>
 
+            {/* React option */}
             <TouchableOpacity
               onPress={() => {
                 setShowActions(false);
-                setShowPicker(true); // 👈 open emoji picker
+                setShowPicker(true);
               }}
             >
               <Text style={styles.menuItem}>😊 React</Text>
@@ -111,7 +136,7 @@ export function MessageBubble({ message, onReact, onReply }: Props) {
         </TouchableOpacity>
       </Modal>
 
-      {/* --- Emoji Picker --- */}
+      {/* --- Emoji Picker Modal --- */}
       <Modal visible={showPicker} transparent animationType="fade">
         <TouchableOpacity
           style={styles.overlay}
@@ -136,7 +161,12 @@ export function MessageBubble({ message, onReact, onReply }: Props) {
   );
 }
 
+/** --------------------
+ *  Styles
+ *  --------------------
+ */
 const styles = StyleSheet.create({
+  // Position wrapper (left/right aligned)
   wrapper: {
     width: "100%",
     paddingVertical: 4,
@@ -145,13 +175,14 @@ const styles = StyleSheet.create({
   wrapperMe: { alignItems: "flex-end" },
   wrapperOther: { alignItems: "flex-start" },
 
+  // Bubble styling
   bubble: {
     maxWidth: "80%",
     padding: 10,
     borderRadius: 16,
   },
   bubbleMe: {
-    backgroundColor: "#DCF8C6",
+    backgroundColor: "#DCF8C6", // WhatsApp green tint
     borderTopRightRadius: 4,
   },
   bubbleOther: {
@@ -161,12 +192,15 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
   },
 
+  // Message text
   text: { fontSize: 16, lineHeight: 22 },
   textMe: { color: "#000" },
   textOther: { color: "#000" },
 
+  // Image content
   image: { width: 200, height: 200, borderRadius: 12, marginTop: 6 },
 
+  // Timestamp
   timestamp: {
     fontSize: 10,
     color: "#888",
@@ -174,20 +208,21 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  reactions: {
-    flexDirection: "row",
-    marginTop: 6,
-  },
+  // Reactions bubble
+  reactions: { flexDirection: "row", marginTop: 6 },
   reactionsMe: { alignSelf: "flex-end" },
   reactionsOther: { alignSelf: "flex-start" },
   reaction: { fontSize: 16, marginRight: 4 },
 
+  // Overlays
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.25)",
     justifyContent: "center",
     alignItems: "center",
   },
+
+  // Long-press menu
   menu: {
     backgroundColor: "#fff",
     padding: 16,
@@ -195,6 +230,7 @@ const styles = StyleSheet.create({
   },
   menuItem: { fontSize: 18, marginVertical: 8 },
 
+  // Emoji picker
   picker: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -204,6 +240,7 @@ const styles = StyleSheet.create({
   },
   pickerEmoji: { fontSize: 28, marginHorizontal: 6 },
 
+  // Reply preview
   replyBox: {
     borderLeftWidth: 3,
     borderLeftColor: "#aaa",

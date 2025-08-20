@@ -1,44 +1,99 @@
+/**
+ * ChatScreen.tsx
+ *
+ * A complete chat interface built with React Native.
+ * Features:
+ *  - Message list with date dividers
+ *  - Replying to messages
+ *  - Typing indicator animation
+ *  - Emoji reactions on messages
+ *  - Auto-scrolling to latest message
+ *  - Simulated incoming messages
+ */
+
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, FlatList, StyleSheet, Animated, KeyboardAvoidingView, Platform } from "react-native";
-import { MessageBubble } from "./MessageBubble";
-import { ChatHeader } from "./ChatHeader";
-import MessageInput from "./MessageInput";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { MessageBubble } from "./MessageBubble"; // Custom bubble for each chat message
+import { ChatHeader } from "./ChatHeader";       // Custom header with back button + title
+import MessageInput from "./MessageInput";       // Input field to type and send messages
 import { useNavigation } from "expo-router/build/useNavigation";
 
+/** --------------------
+ *  Types & Data Models
+ *  --------------------
+ */
 type Message = {
   id: string;
   text?: string;
-  sender: "me" | "john";
+  sender: "me" | "john"; // `me` = local user, `john` = other user
   timestamp: string;
-  reactions?: string[];
-  image?: string;
-  replyTo?: { id: string; text?: string; sender: "me" | "john" };
+  reactions?: string[];  // emoji reactions
+  image?: string;        // optional image message
+  replyTo?: {            // optional reply-to metadata
+    id: string;
+    text?: string;
+    sender: "me" | "john";
+  };
 };
 
-// Dummy data with dates
+/**
+ * Initial dummy data with date-separated messages.
+ * Each message includes sender, timestamp, and text.
+ */
 const initialMessages: Message[] = [
-  { id: "1", text: "Hey John, how are you?", sender: "me", timestamp: "2025-08-18T09:30:00" },
+  { id: "1", text: "Hey John, how are you?", sender: "me",   timestamp: "2025-08-18T09:30:00" },
   { id: "2", text: "I’m good! How about you?", sender: "john", timestamp: "2025-08-18T09:32:00" },
-  { id: "3", text: "All good here 👍", sender: "me", timestamp: "2025-08-18T09:33:00" },
+  { id: "3", text: "All good here 👍", sender: "me",         timestamp: "2025-08-18T09:33:00" },
   { id: "4", text: "Did you check the report?", sender: "john", timestamp: "2025-08-19T11:20:00" },
-  { id: "5", text: "Yes, looks great!", sender: "me", timestamp: "2025-08-19T11:25:00" },
+  { id: "5", text: "Yes, looks great!", sender: "me",        timestamp: "2025-08-19T11:25:00" },
 ];
 
-// Helper to format date dividers
+/**
+ * Helper: Converts Date → Readable String (e.g., "Mon, Aug 18")
+ */
 const formatDate = (date: Date) =>
   date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
+/** --------------------
+ *  Main Chat Screen
+ *  --------------------
+ */
 export default function ChatScreen() {
   const navigation = useNavigation();
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
-  const flatListRef = useRef<FlatList>(null);
 
+  // ---------------- State ----------------
+  const [messages, setMessages] = useState<Message[]>(initialMessages); // list of messages
+  const [replyTo, setReplyTo] = useState<Message | null>(null);         // message being replied to
+  const [isTyping, setIsTyping] = useState(false);                      // typing indicator state
+  const flatListRef = useRef<FlatList>(null);                           // ref for scrolling
+
+  /**
+   * Adds an emoji reaction to a message.
+   * @param id - message ID
+   * @param emoji - emoji string
+   */
   const addReaction = (id: string, emoji: string) => {
-    setMessages(prev => prev.map(m => m.id === id ? { ...m, reactions: [...(m.reactions || []), emoji] } : m));
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === id ? { ...m, reactions: [...(m.reactions || []), emoji] } : m
+      )
+    );
   };
 
+  /**
+   * Handles sending a new message.
+   * - Creates a new message
+   * - Scrolls to bottom
+   * - Simulates other user typing and sending reply
+   */
   const handleSend = (text: string) => {
     if (!text.trim()) return;
 
@@ -52,14 +107,15 @@ export default function ChatScreen() {
         : undefined,
     };
 
+    // Append new message
     setMessages((prev) => [...prev, newMessage]);
 
-    // scroll to bottom after sending
+    // Scroll to latest message
     setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 100);
 
-    // Simulate Gale typing
+    // Simulate the other user typing + replying
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
@@ -67,13 +123,13 @@ export default function ChatScreen() {
       const reply: Message = {
         id: Date.now().toString(),
         text: "This is Gale’s reply 😊",
-        sender: "john", // gale
+        sender: "john",
         timestamp: new Date().toISOString(),
       };
 
       setMessages((prev) => [...prev, reply]);
 
-      // scroll to bottom after reply
+      // Scroll after reply
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
@@ -82,10 +138,13 @@ export default function ChatScreen() {
     setReplyTo(null);
   };
 
-  // insert dividers + typing
+  /**
+   * Prepares messages with:
+   * - Date dividers
+   * - Typing indicator placeholder
+   */
   const renderWithDividers = () => {
-    const items: (Message | { type: "divider" | "typing"; date?: string; id: string })[] =
-      [];
+    const items: (Message | { type: "divider" | "typing"; date?: string; id: string })[] = [];
     let lastDate = "";
 
     messages.forEach((msg) => {
@@ -102,18 +161,18 @@ export default function ChatScreen() {
     return items;
   };
 
-return (
+  // ---------------- UI ----------------
+  return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={80}
     >
       <View style={styles.container}>
-        <ChatHeader
-          title="John Doe"
-          onBack={() => navigation.goBack()}
-        />
+        {/* Chat Header with back button + user name */}
+        <ChatHeader title="John Doe" onBack={() => navigation.goBack()} />
 
+        {/* Messages list with date dividers and typing indicator */}
         <FlatList
           ref={flatListRef}
           data={renderWithDividers()}
@@ -140,6 +199,7 @@ return (
           contentContainerStyle={{ padding: 10, paddingBottom: 60 }}
         />
 
+        {/* Message input box with reply support */}
         <MessageInput
           onSend={handleSend}
           replyTo={replyTo}
@@ -150,12 +210,19 @@ return (
   );
 }
 
-
+/** --------------------
+ *  Typing Indicator
+ *  --------------------
+ * A "..." animated bubble showing when the other user is typing.
+ */
 export function TypingIndicator() {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
 
+  /**
+   * Animates a single dot up & down.
+   */
   const animateDot = (dot: Animated.Value, delay: number) => {
     Animated.loop(
       Animated.sequence([
@@ -165,6 +232,7 @@ export function TypingIndicator() {
     ).start();
   };
 
+  // Start animations for all dots in staggered sequence
   useEffect(() => {
     animateDot(dot1, 0);
     animateDot(dot2, 150);
@@ -180,17 +248,28 @@ export function TypingIndicator() {
   );
 }
 
+/** --------------------
+ *  Styles
+ *  --------------------
+ */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
+
+  // Date divider styles
   dividerWrapper: { alignItems: "center", marginVertical: 8 },
-  typingWrapper: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginVertical: 4,
+  divider: {
+    backgroundColor: "#e0e0e0",
+    color: "#444",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontSize: 12,
   },
+
+  // Typing indicator bubble
   typingBubble: {
     flexDirection: "row",
-    backgroundColor: "#fff",      // white bubble like WhatsApp
+    backgroundColor: "#fff", // white bubble like WhatsApp
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -201,24 +280,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#555", marginHorizontal: 2 },
-  divider: {
-    backgroundColor: "#e0e0e0",
-    color: "#444",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    fontSize: 12,
-  },
-  textInputScroll: {
-    flex: 1,
-    maxHeight: 100, // 👈 ~4 lines of text
-  },
-  input: {
-    padding: 10,
-    fontSize: 16,
-    borderRadius: 20,
-    backgroundColor: "#f5f5f5",
-    textAlignVertical: "top", // ensures proper alignment
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#555",
+    marginHorizontal: 2,
   },
 });

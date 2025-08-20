@@ -1,15 +1,19 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 
 const emojis = ["👍", "❤️", "😂", "😮", "😢"];
 
-export default function ReactionBar() {
+type Props = {
+  onReact?: (emoji: string) => void;
+};
+
+export default function ReactionBar({ onReact }: Props) {
   return (
     <View style={styles.container}>
       {emojis.map((emoji) => (
-        <Text key={emoji} style={styles.emoji}>
-          {emoji}
-        </Text>
+        <TouchableOpacity key={emoji} onPress={() => onReact?.(emoji)}>
+          <Text style={styles.emoji}>{emoji}</Text>
+        </TouchableOpacity>
       ))}
     </View>
   );
