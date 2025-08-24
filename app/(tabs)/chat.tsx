@@ -1,14 +1,7 @@
 /**
  * ChatScreen.tsx
  *
- * A complete chat interface built with React Native.
- * Features:
- *  - Message list with date dividers
- *  - Replying to messages
- *  - Typing indicator animation
- *  - Emoji reactions on messages
- *  - Auto-scrolling to latest message
- *  - Simulated incoming messages
+ * Extended: Includes "first-time quick options" screen before normal chat.
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -20,45 +13,50 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
+  TouchableOpacity,
 } from "react-native";
-import { MessageBubble } from "./MessageBubble"; // Custom bubble for each chat message
-import { ChatHeader } from "./ChatHeader";       // Custom header with back button + title
-import MessageInput from "./MessageInput";       // Input field to type and send messages
+import { ChatHeader } from "./ChatHeader";
+import MessageInput from "./MessageInput";
 import { useNavigation } from "expo-router/build/useNavigation";
+import * as Clipboard from "expo-clipboard";
+import { Alert } from "react-native";
+// ✅ using your already-declared Message type
+import type { Message } from "./Message";
+import { MessageBubble } from "./MessageBubble";
 
 /** --------------------
- *  Types & Data Models
+ *  Dummy Initial Messages
  *  --------------------
  */
-type Message = {
-  id: string;
-  text?: string;
-  sender: "me" | "john"; // `me` = local user, `john` = other user
-  timestamp: string;
-  reactions?: string[];  // emoji reactions
-  image?: string;        // optional image message
-  replyTo?: {            // optional reply-to metadata
-    id: string;
-    text?: string;
-    sender: "me" | "john";
-  };
-};
 
-/**
- * Initial dummy data with date-separated messages.
- * Each message includes sender, timestamp, and text.
- */
+
+const handleCopy = async (text: string) => {
+  await Clipboard.setStringAsync(text);
+  Alert.alert("Copied", "Message copied to clipboard");
+};
 const initialMessages: Message[] = [
-  { id: "1", text: "Hey John, how are you?", sender: "me",   timestamp: "2025-08-18T09:30:00" },
-  { id: "2", text: "I’m good! How about you?", sender: "john", timestamp: "2025-08-18T09:32:00" },
-  { id: "3", text: "All good here 👍", sender: "me",         timestamp: "2025-08-18T09:33:00" },
-  { id: "4", text: "Did you check the report?", sender: "john", timestamp: "2025-08-19T11:20:00" },
-  { id: "5", text: "Yes, looks great!", sender: "me",        timestamp: "2025-08-19T11:25:00" },
+  {
+    id: "1",
+    text: "Hey John, how are you?",
+    sender: "me",
+    timestamp: "2025-08-18T09:30:00",
+  },
+  {
+    id: "2",
+    text: "I’m good! How about you?",
+    sender: "john",
+    timestamp: "2025-08-18T09:32:00",
+  },
 ];
 
-/**
- * Helper: Converts Date → Readable String (e.g., "Mon, Aug 18")
- */
+const quickOptions = [
+  "Quick solutions for a problem",
+  "A solid venting session!",
+  "Help brainstorming a strategy",
+  "More information about PDA",
+  "To share a win!",
+];
+
 const formatDate = (date: Date) =>
   date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
@@ -69,17 +67,12 @@ const formatDate = (date: Date) =>
 export default function ChatScreen() {
   const navigation = useNavigation();
 
-  // ---------------- State ----------------
-  const [messages, setMessages] = useState<Message[]>(initialMessages); // list of messages
-  const [replyTo, setReplyTo] = useState<Message | null>(null);         // message being replied to
-  const [isTyping, setIsTyping] = useState(false);                      // typing indicator state
-  const flatListRef = useRef<FlatList>(null);                           // ref for scrolling
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [showQuickOptions, setShowQuickOptions] = useState(true); // 👈 first-time options
+  const flatListRef = useRef<FlatList>(null);
 
-  /**
-   * Adds an emoji reaction to a message.
-   * @param id - message ID
-   * @param emoji - emoji string
-   */
   const addReaction = (id: string, emoji: string) => {
     setMessages((prev) =>
       prev.map((m) =>
@@ -88,14 +81,9 @@ export default function ChatScreen() {
     );
   };
 
-  /**
-   * Handles sending a new message.
-   * - Creates a new message
-   * - Scrolls to bottom
-   * - Simulates other user typing and sending reply
-   */
   const handleSend = (text: string) => {
     if (!text.trim()) return;
+    setShowQuickOptions(false); // hide quick options after first send
 
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -107,42 +95,31 @@ export default function ChatScreen() {
         : undefined,
     };
 
-    // Append new message
     setMessages((prev) => [...prev, newMessage]);
 
-    // Scroll to latest message
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
-    // Simulate the other user typing + replying
+    // Simulate "john" typing and replying
     setIsTyping(true);
     setTimeout(() => {
       setIsTyping(false);
-
       const reply: Message = {
         id: Date.now().toString(),
         text: "This is Gale’s reply 😊",
         sender: "john",
         timestamp: new Date().toISOString(),
       };
-
       setMessages((prev) => [...prev, reply]);
-
-      // Scroll after reply
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }, 2500);
 
     setReplyTo(null);
   };
 
-  /**
-   * Prepares messages with:
-   * - Date dividers
-   * - Typing indicator placeholder
-   */
+  const handleQuickOption = (option: string) => {
+    handleSend(option);
+  };
+
   const renderWithDividers = () => {
     const items: (Message | { type: "divider" | "typing"; date?: string; id: string })[] = [];
     let lastDate = "";
@@ -161,7 +138,6 @@ export default function ChatScreen() {
     return items;
   };
 
-  // ---------------- UI ----------------
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -169,37 +145,71 @@ export default function ChatScreen() {
       keyboardVerticalOffset={80}
     >
       <View style={styles.container}>
-        {/* Chat Header with back button + user name */}
-        <ChatHeader title="John Doe" onBack={() => navigation.goBack()} />
-
-        {/* Messages list with date dividers and typing indicator */}
+        <ChatHeader title="Gale" isTyping= {isTyping} onBack={() => navigation.goBack()} />
+     
         <FlatList
           ref={flatListRef}
-          data={renderWithDividers()}
+          data={[
+            ...renderWithDividers(),
+            ...(showQuickOptions
+              ? [
+                  {
+                    type: "quickOptions",
+                    id: "quick-options-block",
+                  },
+                ]
+              : []),
+          ]}
           keyExtractor={(item) =>
             "id" in item ? item.id : Math.random().toString()
           }
-          renderItem={({ item }) =>
-            "type" in item ? (
-              item.type === "divider" ? (
-                <View style={styles.dividerWrapper}>
-                  <Text style={styles.divider}>{item.date}</Text>
-                </View>
-              ) : item.type === "typing" ? (
-                <TypingIndicator />
-              ) : null
-            ) : (
+          renderItem={({ item }) => {
+            if ("type" in item) {
+              if (item.type === "divider") {
+                return (
+                  <View style={styles.dividerWrapper}>
+                    <Text style={styles.divider}>{item.date}</Text>
+                  </View>
+                );
+              }
+              if (item.type === "typing") {
+                if (!isTyping) setIsTyping(true);
+                return <TypingIndicator />;
+              }
+              if (item.type === "quickOptions") {
+                return (
+                  <View style={styles.quickContainer}>
+                    <Text style={styles.dateText}>Wed, 20 Nov</Text>
+                    <Text style={styles.promptText}>
+                      What would be most helpful for you today?
+                    </Text>
+                    {quickOptions.map((option) => (
+                      <TouchableOpacity
+                        key={option}
+                        style={styles.optionButton}
+                        onPress={() => handleQuickOption(option)}
+                      >
+                        <Text style={styles.optionText}>{option}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                );
+              }
+            }
+  
+            // Normal chat bubble
+            return (
               <MessageBubble
                 message={item}
-                onReact={addReaction}
-                onReply={() => setReplyTo(item)}
+                 onReact={addReaction}
+                 onReply={() => setReplyTo(item)}
               />
-            )
-          }
-          contentContainerStyle={{ padding: 10, paddingBottom: 60 }}
+            );
+          }}
+          contentContainerStyle={{ padding: 10, paddingBottom: 60,backgroundColor: "#D7D5CE"
+          }}
         />
-
-        {/* Message input box with reply support */}
+  
         <MessageInput
           onSend={handleSend}
           replyTo={replyTo}
@@ -208,21 +218,18 @@ export default function ChatScreen() {
       </View>
     </KeyboardAvoidingView>
   );
+  
 }
 
 /** --------------------
  *  Typing Indicator
  *  --------------------
- * A "..." animated bubble showing when the other user is typing.
  */
 export function TypingIndicator() {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
 
-  /**
-   * Animates a single dot up & down.
-   */
   const animateDot = (dot: Animated.Value, delay: number) => {
     Animated.loop(
       Animated.sequence([
@@ -232,7 +239,6 @@ export function TypingIndicator() {
     ).start();
   };
 
-  // Start animations for all dots in staggered sequence
   useEffect(() => {
     animateDot(dot1, 0);
     animateDot(dot2, 150);
@@ -248,14 +254,10 @@ export function TypingIndicator() {
   );
 }
 
-/** --------------------
- *  Styles
- *  --------------------
- */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  container: { flex: 1,backgroundColor: "#D7D5CE"
+  },
 
-  // Date divider styles
   dividerWrapper: { alignItems: "center", marginVertical: 8 },
   divider: {
     backgroundColor: "#e0e0e0",
@@ -266,10 +268,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
-  // Typing indicator bubble
   typingBubble: {
     flexDirection: "row",
-    backgroundColor: "#fff", // white bubble like WhatsApp
+    backgroundColor: "#fff",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
@@ -287,4 +288,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#555",
     marginHorizontal: 2,
   },
+
+  // 👇 styles for quick options
+  quickContainer: { padding: 16, alignItems: "center" },
+  dateText: { fontSize: 14, marginBottom: 8, color: "#555", fontWeight: "600" },
+  promptText: { fontSize: 16, marginBottom: 16, textAlign: "center" },
+  optionButton: {
+    backgroundColor: "#E8E2D9",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    marginVertical: 6,
+    width: "100%",
+  },
+  optionText: { fontSize: 15, textAlign: "center" },
 });

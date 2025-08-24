@@ -1,18 +1,3 @@
-/**
- * MessageBubble.tsx
- *
- * A single chat bubble component that supports:
- *  - Text, images, and timestamps
- *  - Inline reply previews
- *  - Long-press action menu (Reply / React)
- *  - Emoji reaction picker
- *
- * Props:
- *  - message: Message object to render
- *  - onReact: callback(id, emoji) → handles emoji reactions
- *  - onReply: callback(message) → sets reply context
- */
-
 import React, { useState } from "react";
 import {
   View,
@@ -21,16 +6,20 @@ import {
   Image,
   TouchableOpacity,
   Modal,
+  Share,
+  ScrollView,
+  TouchableWithoutFeedback,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import type { Message } from "./Message";
 
 type Props = {
   message: Message;
   onReact: (id: string, emoji: string) => void;
   onReply: (msg: Message) => void;
+  onDelete?: (id: string) => void;
 };
 
-/** format timestamp without external libs */
 function formatTime(date: string | number | Date) {
   return new Date(date).toLocaleTimeString([], {
     hour: "2-digit",
@@ -38,28 +27,24 @@ function formatTime(date: string | number | Date) {
   });
 }
 
-/** --------------------
- *  MessageBubble Component
- *  --------------------
- */
-export function MessageBubble({ message, onReact, onReply }: Props) {
-  const [showActions, setShowActions] = useState(false); // long-press menu
-  const [showPicker, setShowPicker] = useState(false);   // emoji picker modal
+export function MessageBubble({ message, onReact, onReply, onDelete }: Props) {
+  const [showActions, setShowActions] = useState(false);
+  const [pressedEmoji, setPressedEmoji] = useState<string | null>(null);
 
   const isMe = message.sender === "me";
   const emojis = ["👍", "❤️", "😂", "😮", "😢", "👏"];
 
   return (
     <>
-      {/* --- Chat bubble wrapper --- */}
+      {/* Chat Bubble */}
       <TouchableOpacity
         activeOpacity={0.8}
-        onLongPress={() => setShowActions(true)} // open actions menu
+        onLongPress={() => {
+          if (!isMe) setShowActions(true);
+        }}
         style={[styles.wrapper, isMe ? styles.wrapperMe : styles.wrapperOther]}
       >
         <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
-          
-          {/* Reply preview */}
           {message.replyTo && (
             <View style={styles.replyBox}>
               <Text style={styles.replySender}>
@@ -71,31 +56,20 @@ export function MessageBubble({ message, onReact, onReply }: Props) {
             </View>
           )}
 
-          {/* Text message */}
           {!!message.text && (
             <Text style={[styles.text, isMe ? styles.textMe : styles.textOther]}>
               {message.text}
             </Text>
           )}
 
-          {/* Image message */}
           {!!message.image && (
             <Image source={{ uri: message.image }} style={styles.image} />
           )}
 
-          {/* Timestamp */}
-          <Text style={styles.timestamp}>
-            {formatTime(message.timestamp)}
-          </Text>
+          <Text style={styles.timestamp}>{formatTime(message.timestamp)}</Text>
 
-          {/* Reactions */}
           {message.reactions?.length ? (
-            <View
-              style={[
-                styles.reactions,
-                isMe ? styles.reactionsMe : styles.reactionsOther,
-              ]}
-            >
+            <View style={[styles.reactions, isMe ? styles.reactionsMe : styles.reactionsOther]}>
               {message.reactions.map((r, i) => (
                 <Text key={i} style={styles.reaction}>
                   {r}
@@ -106,56 +80,87 @@ export function MessageBubble({ message, onReact, onReply }: Props) {
         </View>
       </TouchableOpacity>
 
-      {/* --- Long-press Action Menu --- */}
+      {/* Long Press Menu Modal */}
       <Modal visible={showActions} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.overlay}
-          onPress={() => setShowActions(false)}
-        >
-          <View style={styles.menu}>
-            {/* Reply option */}
-            <TouchableOpacity
-              onPress={() => {
-                setShowActions(false);
-                onReply(message);
-              }}
-            >
-              <Text style={styles.menuItem}>↩️ Reply</Text>
-            </TouchableOpacity>
-
-            {/* React option */}
-            <TouchableOpacity
-              onPress={() => {
-                setShowActions(false);
-                setShowPicker(true);
-              }}
-            >
-              <Text style={styles.menuItem}>😊 React</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* --- Emoji Picker Modal --- */}
-      <Modal visible={showPicker} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.overlay}
-          onPress={() => setShowPicker(false)}
-        >
-          <View style={styles.picker}>
-            {emojis.map((e) => (
-              <TouchableOpacity
-                key={e}
-                onPress={() => {
-                  onReact(message.id, e);
-                  setShowPicker(false);
-                }}
+        <TouchableWithoutFeedback onPress={() => setShowActions(false)}>
+          <View style={styles.overlay}>
+            <View style={styles.actionContainer}>
+              {/* Emoji Bar */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingVertical: 6, paddingHorizontal: 8 }}
               >
-                <Text style={styles.pickerEmoji}>{e}</Text>
-              </TouchableOpacity>
-            ))}
+                {emojis.map((e) => (
+                  <TouchableOpacity
+                    key={e}
+                    style={{ padding: 4 }}
+                    onPressIn={() => setPressedEmoji(e)}
+                    onPressOut={() => {
+                      onReact(message.id, e);
+                      setPressedEmoji(null);
+                      setShowActions(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.pickerEmoji,
+                        pressedEmoji === e && styles.pickerEmojiActive,
+                      ]}
+                    >
+                      {e}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Message Preview */}
+              <View style={styles.bubblePreview}>
+                <Text style={styles.textOther}>{message.text}</Text>
+                <Text style={styles.timestamp}>{formatTime(message.timestamp)}</Text>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.menu}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowActions(false);
+                    onReply(message);
+                  }}
+                >
+                  <Text style={styles.menuItem}>↩️ Reply</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    Clipboard.setStringAsync(message.text);
+                    setShowActions(false);
+                  }}
+                >
+                  <Text style={styles.menuItem}>📋 Copy</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={async () => {
+                    await Share.share({ message: message.text });
+                    setShowActions(false);
+                  }}
+                >
+                  <Text style={styles.menuItem}>📤 Share</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    if (onDelete) onDelete(message.id);
+                    setShowActions(false);
+                  }}
+                >
+                  <Text style={[styles.menuItem, { color: "red" }]}>🗑️ Delete</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-        </TouchableOpacity>
+        </TouchableWithoutFeedback>
       </Modal>
     </>
   );
@@ -166,7 +171,7 @@ export function MessageBubble({ message, onReact, onReply }: Props) {
  *  --------------------
  */
 const styles = StyleSheet.create({
-  // Position wrapper (left/right aligned)
+  // Layout
   wrapper: {
     width: "100%",
     paddingVertical: 4,
@@ -175,14 +180,13 @@ const styles = StyleSheet.create({
   wrapperMe: { alignItems: "flex-end" },
   wrapperOther: { alignItems: "flex-start" },
 
-  // Bubble styling
   bubble: {
     maxWidth: "80%",
     padding: 10,
     borderRadius: 16,
   },
   bubbleMe: {
-    backgroundColor: "#DCF8C6", // WhatsApp green tint
+    backgroundColor: "#008B9C",
     borderTopRightRadius: 4,
   },
   bubbleOther: {
@@ -192,55 +196,42 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
   },
 
-  // Message text
   text: { fontSize: 16, lineHeight: 22 },
   textMe: { color: "#000" },
   textOther: { color: "#000" },
 
-  // Image content
-  image: { width: 200, height: 200, borderRadius: 12, marginTop: 6 },
+  image: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    marginTop: 6,
+  },
 
-  // Timestamp
   timestamp: {
     fontSize: 10,
-    color: "#888",
+    color: "#fff",
     alignSelf: "flex-end",
     marginTop: 4,
   },
 
-  // Reactions bubble
-  reactions: { flexDirection: "row", marginTop: 6 },
+  timestampOther: {
+    fontSize: 10,
+    color: "#fff",
+    alignSelf: "flex-end",
+    marginTop: 4,
+  },
+
+  reactions: {
+    flexDirection: "row",
+    marginTop: 6,
+  },
   reactionsMe: { alignSelf: "flex-end" },
   reactionsOther: { alignSelf: "flex-start" },
-  reaction: { fontSize: 16, marginRight: 4 },
-
-  // Overlays
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.25)",
-    justifyContent: "center",
-    alignItems: "center",
+  reaction: {
+    fontSize: 16,
+    marginRight: 4,
   },
 
-  // Long-press menu
-  menu: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 12,
-  },
-  menuItem: { fontSize: 18, marginVertical: 8 },
-
-  // Emoji picker
-  picker: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 24,
-  },
-  pickerEmoji: { fontSize: 28, marginHorizontal: 6 },
-
-  // Reply preview
   replyBox: {
     borderLeftWidth: 3,
     borderLeftColor: "#aaa",
@@ -249,4 +240,47 @@ const styles = StyleSheet.create({
   },
   replySender: { fontSize: 12, fontWeight: "600", color: "#333" },
   replyText: { fontSize: 12, color: "#555" },
+
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  actionContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    width: "85%",
+    overflow: "hidden",
+    elevation: 5,
+    marginTop: 150,
+  },
+
+  bubblePreview: {
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "#f7f7f7",
+    marginVertical: 0,
+  },
+
+  menu: {
+    borderTopWidth: 1,
+    borderColor: "#eee",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  menuItem: {
+    fontSize: 16,
+    marginVertical: 6,
+  },
+
+  pickerEmoji: {
+    fontSize: 22,
+    marginHorizontal: 4,
+  },
+  pickerEmojiActive: {
+    fontSize: 28,
+    transform: [{ scale: 1.2 }],
+  },
 });

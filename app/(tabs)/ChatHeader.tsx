@@ -1,94 +1,64 @@
-/**
- * ChatHeader.tsx
- *
- * A reusable header component for the chat screen.
- * Features:
- *  - Back navigation button
- *  - User avatar (with placeholder if no image is provided)
- *  - Display of chat partner’s name
- *  - Live status indicator (e.g., "online" or "Typing...")
- */
-
 import React from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-/** --------------------
- *  Props Definition
- *  --------------------
- */
 type Props = {
-  /** The title to show, typically the chat partner’s name */
   title: string;
-
-  /** Optional profile image (URI). If missing, a placeholder icon is shown */
   profileUri?: string;
-
-  /** Shows typing indicator if true; otherwise shows "online" */
   isTyping?: boolean;
-
-  /** Callback for when back button is pressed */
   onBack?: () => void;
 };
 
-/** --------------------
- *  ChatHeader Component
- *  --------------------
- */
 export function ChatHeader({ title, profileUri, isTyping, onBack }: Props) {
   return (
     <View style={styles.header}>
-      {/* Back Button (navigates to previous screen) */}
+      {/* Back Button */}
       <TouchableOpacity onPress={onBack} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color="#000" />
+        <Ionicons name="arrow-back" size={24} color="#fff" />
       </TouchableOpacity>
 
-      {/* User Avatar */}
-      {profileUri ? (
-        <Image source={{ uri: profileUri }} style={styles.avatar} />
-      ) : (
-        <View style={styles.avatarPlaceholder}>
-          <Ionicons name="person" size={28} color="#555" />
-        </View>
-      )}
+      {/* Avatar with green dot */}
+      <View style={styles.avatarWrapper}>
+        {profileUri ? (
+          <Image source={{ uri: profileUri }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Ionicons name="person" size={28} color="#555" />
+          </View>
+        )}
+        <View style={styles.onlineDot} />
+      </View>
 
-      {/* User Name + Status (typing / online) */}
-      <View style={{ marginLeft: 8 }}>
+      {/* Name + Status */}
+      <View style={styles.info}>
         <Text style={styles.name}>{title}</Text>
-        <Text style={styles.status}>{isTyping ? "Typing..." : "online"}</Text>
+        <Text style={styles.status}>
+          {isTyping ? "Typing..." : "Online"}
+        </Text>
       </View>
     </View>
   );
 }
 
-/** --------------------
- *  Styles
- *  --------------------
- */
 const styles = StyleSheet.create({
-  // Root header container
   header: {
-    flexDirection: "row",          // align items horizontally
-    alignItems: "center",          // vertical alignment
-    padding: 12,
-    borderBottomWidth: 1,          // subtle bottom divider
-    borderBottomColor: "#eee",
-    backgroundColor: "#fff",       // clean white background
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "#0E516D", // ✅ dark teal background
   },
-
-  // Back arrow button
   backButton: {
     marginRight: 12,
   },
-
-  // Profile avatar (if image provided)
+  avatarWrapper: {
+    position: "relative",
+  },
   avatar: {
     width: 40,
     height: 40,
-    borderRadius: 20,              // circular avatar
+    borderRadius: 20,
   },
-
-  // Placeholder avatar (if no image provided)
   avatarPlaceholder: {
     width: 40,
     height: 40,
@@ -97,16 +67,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  // Chat partner’s name
+  onlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "green",
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    borderWidth: 2,
+    borderColor: "#0d3b66", // match header bg
+  },
+  info: {
+    marginLeft: 10,
+  },
   name: {
     fontSize: 16,
     fontWeight: "bold",
+    color: "#fff",
   },
-
-  // Status text (online / typing)
   status: {
     fontSize: 12,
-    color: "gray",
+    color: "#d3d3d3",
   },
 });

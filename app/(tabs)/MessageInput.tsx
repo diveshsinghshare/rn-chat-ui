@@ -1,6 +1,24 @@
-import React, { Component } from "react";
-import { View, TextInput, Button, StyleSheet, Text, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  Image,
+  Platform,
+  LayoutAnimation,
+  UIManager,
+  Keyboard,
+} from "react-native";
 import type { Message } from "./Message";
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const SEND_ICON = require("../../assets/send-arrow.png");
 
 type Props = {
   onSend: (text: string) => void;
@@ -8,77 +26,152 @@ type Props = {
   onCancelReply: () => void;
 };
 
-type State = {
-  text: string;
-};
+const FONT_SIZE = 15;
+const LINE_HEIGHT = 18;
+const VERT_PAD = 4; // reduced padding for smaller height
+const MAX_LINES = 5;
+const MIN_INPUT_HEIGHT = LINE_HEIGHT + VERT_PAD * 2; // smaller min height
+const MAX_INPUT_HEIGHT = LINE_HEIGHT * MAX_LINES + VERT_PAD * 2;
 
-export default class MessageInput extends Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = {
-      text: "",
+export default function MessageInput({ onSend, replyTo, onCancelReply }: Props) {
+  const [text, setText] = useState("");
+  const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  const showSend = keyboardVisible && !!text.trim();
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
     };
-  }
+  }, []);
 
-  handleSend = () => {
-    const { text } = this.state;
-    const { onSend } = this.props;
+  const handleSend = () => {
     if (text.trim()) {
-      onSend(text);
-      this.setState({ text: "" });
+      onSend(text.trim());
+      setText("");
+      setInputHeight(MIN_INPUT_HEIGHT);
     }
   };
 
-  render() {
-    const { replyTo, onCancelReply } = this.props;
-    const { text } = this.state;
+  const handleSizeChange = (e: any) => {
+    const contentH = e.nativeEvent.contentSize.height;
+    const nextH = Math.min(MAX_INPUT_HEIGHT, Math.max(MIN_INPUT_HEIGHT, contentH + VERT_PAD * 2));
+    if (nextH !== inputHeight) {
+      LayoutAnimation.easeInEaseOut();
+      setInputHeight(nextH);
+    }
+  };
 
-    return (
-      <View style={styles.container}>
-        {replyTo && (
-          <View style={styles.replyPreview}>
-            <Text style={styles.replyLabel}>Replying to: {replyTo.text}</Text>
-            <TouchableOpacity onPress={onCancelReply}>
-              <Text style={styles.cancelReply}>❌</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+  useEffect(() => {
+    LayoutAnimation.easeInEaseOut();
+  }, [showSend]);
 
+  return (
+    <View style={styles.bar}>
+      {replyTo && (
+        <View style={styles.replyPreview}>
+          <Text style={styles.replyLabel} numberOfLines={1}>
+            Replying to: {replyTo.text}
+          </Text>
+          <TouchableOpacity onPress={onCancelReply} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.cancelReply}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.row}>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            { height: inputHeight },
+            !showSend && styles.inputFullWidth, // full width when send button hidden
+          ]}
           value={text}
-          onChangeText={(t) => this.setState({ text: t })}
+          onChangeText={setText}
           placeholder="Type a message"
+          placeholderTextColor="#888"
+          multiline
+          maxLength={500}
+          onContentSizeChange={handleSizeChange}
         />
-        <Button title="Send" onPress={this.handleSend} />
+
+        {showSend && (
+          <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+            <Image source={SEND_ICON} style={styles.sendIcon} />
+          </TouchableOpacity>
+        )}
       </View>
-    );
-  }
+
+      <Text style={styles.footerNote}>
+        AI can make mistakes. Please check all important information.
+      </Text>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: { flexDirection: "row", alignItems: "center", padding: 8 },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 4,
-    padding: 8,
-    marginRight: 8,
+  bar: {
+    paddingTop: 6,
+    paddingBottom: 4,
+    paddingHorizontal: 10,
+    backgroundColor: "#008B9C",
+    borderTopWidth: 1,
+    borderTopColor: "#E6EBF1",
   },
   replyPreview: {
-    position: "absolute",
-    top: -40,
-    left: 10,
-    right: 10,
-    backgroundColor: "#f0f0f0",
-    padding: 6,
-    borderLeftWidth: 3,
-    borderLeftColor: "#007AFF",
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#E7EEF4",
+    borderLeftWidth: 3,
+    borderLeftColor: "#008B9C",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 6,
+  },
+  replyLabel: { flex: 1, fontSize: 12, color: "#334155" },
+  cancelReply: { fontSize: 14, paddingLeft: 8, color: "#64748B" },
+  row: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+  },
+  input: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: VERT_PAD,
+    fontSize: FONT_SIZE,
+    lineHeight: LINE_HEIGHT,
+    color: "#000",
+  },
+  inputFullWidth: {
+    flex: 1,
+    marginRight: 0,
+  },
+  sendButton: {
+    marginLeft: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#004F54", // dark teal circular button
+    justifyContent: "center",
     alignItems: "center",
   },
-  replyLabel: { fontSize: 12, color: "#333" },
-  cancelReply: { fontSize: 14, marginLeft: 10 },
+  sendIcon: {
+    width: 20,
+    height: 20,
+    resizeMode: "contain", // no tint
+  },
+  
+  footerNote: {
+    marginTop: 4,
+    fontSize: 11,
+    color: "#fff",
+    textAlign: "center",
+  },
 });
